@@ -97,7 +97,7 @@ debug.getstack = Volcano.API.get_stack
 ------------------------------------------------------------
 -- 🧬 set_stack (rebuilds debug.setstack for upvalues only)
 ------------------------------------------------------------
-function Volcano.API.set_stack(thread, level, key, value)
+function Volcano.API.set_stack(thread, level, keyOrIndex, value)
     if coroutine.running() ~= thread then
         warn("[Volcano:set_stack] Cannot modify foreign thread.")
         Volcano.SupportAvailable.set_stack = "unsupported"
@@ -116,7 +116,8 @@ function Volcano.API.set_stack(thread, level, key, value)
     for i = 1, debug.getinfo(func, "u").nups do
         local name = debug.getupvalue(func, i)
         if not name then break end
-        if name == key then
+
+        if (type(keyOrIndex) == "number" and i == keyOrIndex) or (type(keyOrIndex) == "string" and name == keyOrIndex) then
             debug.setupvalue(func, i, value)
             success = true
             break
@@ -127,7 +128,7 @@ function Volcano.API.set_stack(thread, level, key, value)
         Volcano.SupportAvailable.set_stack = "rebuilt-upvalue"
     else
         Volcano.SupportAvailable.set_stack = "unsupported-upvalue"
-        warn("[Volcano:set_stack] Upvalue '" .. key .. "' not found.")
+        warn("[Volcano:set_stack] Upvalue '" .. tostring(keyOrIndex) .. "' not found.")
     end
 
     return success
