@@ -58,7 +58,7 @@ function Volcano.API.replicate_signal(signal)
 end
 
 ------------------------------------------------------------
--- 🧠 get_stack (rebuilds debug.getstack, supports foreign threads via RAPI.run_on_thread)
+-- 🧠 get_stack (rebuilds debug.getstack, local thread only)
 ------------------------------------------------------------
 function Volcano.API.get_stack(thread)
     local function collect_stack()
@@ -74,22 +74,14 @@ function Volcano.API.get_stack(thread)
     end
 
     if thread and coroutine.running() ~= thread then
-        local result = nil
-        local done = false
-
-        RAPI.run_on_thread(function()
-            result = collect_stack()
-            done = true
-        end)
-
-        repeat task.wait() until done
-        Volcano.SupportAvailable.get_stack = "rebuilt-foreign"
-        return result
-    else
-        local stack = collect_stack()
-        Volcano.SupportAvailable.get_stack = "rebuilt-local"
-        return stack
+        warn("[Volcano:get_stack] Cannot retrieve stack from foreign thread.")
+        Volcano.SupportAvailable.get_stack = "unsupported-foreign"
+        return nil
     end
+
+    local stack = collect_stack()
+    Volcano.SupportAvailable.get_stack = "rebuilt-local"
+    return stack
 end
 
 debug.getstack = Volcano.API.get_stack
