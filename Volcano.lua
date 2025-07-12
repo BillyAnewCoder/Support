@@ -1,11 +1,10 @@
 -- Volcano.lua
 -- Full API shim to support missing executor functions using RAPI for thread handling
 
--- Load RAPI from GitHub
 local RAPI = loadstring(game:HttpGet("https://raw.githubusercontent.com/BillyAnewCoder/FunctionLib/main/RAPI.lua"))()
 
 local Volcano = {}
-Volcano.VERSION = "1.1"
+Volcano.VERSION = "1.2"
 Volcano.API = {}
 Volcano.SupportAvailable = {}
 
@@ -55,7 +54,6 @@ function Volcano.API.get_stack(thread)
     end
 
     if coroutine.running() ~= thread then
-        -- run collection on a new thread to avoid foreign-thread error
         local result, done = nil, false
         RAPI.thread(function()
             result = collect_stack()
@@ -66,7 +64,6 @@ function Volcano.API.get_stack(thread)
         return result
     end
 
-    -- current thread: direct collect
     local direct = collect_stack()
     Volcano.SupportAvailable.get_stack = "rebuilt"
     return direct
