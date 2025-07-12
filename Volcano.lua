@@ -12,7 +12,9 @@ Volcano.SupportAvailable = {}
 -- 🔁 replicate_signal (alias for replicatesignal)
 ------------------------------------------------------------
 function Volcano.API.replicate_signal(signal)
-    local event = (typeof(signal) == "Instance" and signal:IsA("BindableEvent")) and signal.Event or signal
+    local isBindable = typeof(signal) == "Instance" and signal:IsA("BindableEvent")
+    local event = isBindable and signal.Event or signal
+
     if typeof(event) ~= "RBXScriptSignal" then
         warn("[Volcano:replicate_signal] Invalid signal passed")
         return nil
@@ -21,10 +23,10 @@ function Volcano.API.replicate_signal(signal)
     local wrapper = { _connections = {} }
 
     function wrapper:Fire(...)
-        if typeof(signal) == "Instance" and signal:IsA("BindableEvent") then
+        if isBindable then
             signal:Fire(...)
         elseif typeof(firesignal) == "function" then
-            firesignal(signal, ...)
+            firesignal(event, ...)
         else
             warn("[Volcano:Fire] Cannot fire signal")
         end
