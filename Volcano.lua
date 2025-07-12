@@ -1,3 +1,4 @@
+
 -- Volcano.lua
 -- Full API shim to support missing executor functions using RAPI for thread handling
 
@@ -127,5 +128,12 @@ function Volcano.API.is_scriptable(property)
     return ok
 end
 isscriptable = Volcano.API.is_scriptable
+
+-- Aliases for direct access
+Volcano.replicatesignal = Volcano.API.replicate_signal
+Volcano.getstack = Volcano.API.get_stack
+Volcano.setstack = Volcano.API.set_stack
+Volcano.getscripts = Volcano.API.get_scripts
+Volcano.isscriptable = Volcano.API.is_scriptable
 
 return Volcano
