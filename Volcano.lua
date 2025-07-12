@@ -150,11 +150,10 @@ function Volcano.API.is_scriptable(property)
 end
 isscriptable = Volcano.API.is_scriptable
 
--- Aliases for direct access
 Volcano.replicatesignal = Volcano.API.replicate_signal
-Volcano.getstack = Volcano.API.get_stack
-Volcano.setstack = Volcano.API.set_stack
-Volcano.getscripts = Volcano.API.get_scripts
-Volcano.isscriptable = Volcano.API.is_scriptable
+Volcano.getstack        = Volcano.API.get_stack
+Volcano.setstack        = Volcano.API.set_stack
+Volcano.getscripts      = Volcano.API.get_scripts
+Volcano.isscriptable    = Volcano.API.is_scriptable
 
 return Volcano
