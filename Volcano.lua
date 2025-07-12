@@ -13,30 +13,51 @@ Volcano.SupportAvailable = {}
 -- 🔁 replicate_signal (alias for replicatesignal)
 ------------------------------------------------------------
 function Volcano.API.replicate_signal(signal)
+    local event = (typeof(signal) == "Instance" and signal:IsA("BindableEvent")) and signal.Event or signal
+    if typeof(event) ~= "RBXScriptSignal" then
+        warn("[Volcano:replicate_signal] Invalid signal passed")
+        return nil
+    end
+
     local wrapper = { _connections = {} }
-    function wrapper:Fire(...) firesignal(signal, ...) end
+
+    function wrapper:Fire(...)
+        local fire = rawget(signal, "Fire")
+        if typeof(fire) == "function" then
+            fire(signal, ...)
+        elseif typeof(firesignal) == "function" then
+            firesignal(signal, ...)
+        else
+            warn("[Volcano:Fire] Cannot fire signal")
+        end
+    end
+
     function wrapper:Connect(func)
-        local conn = signal:Connect(func)
+        local conn = event:Connect(func)
         table.insert(self._connections, conn)
         return conn
     end
+
     function wrapper:Once(func)
         local conn
-        conn = signal:Connect(function(...)
+        conn = event:Connect(function(...)
             func(...)
             if conn then conn:Disconnect() end
         end)
         table.insert(self._connections, conn)
         return conn
     end
+
     function wrapper:DisconnectAll()
-        for _, conn in ipairs(self._connections) do pcall(conn.Disconnect, conn) end
+        for _, conn in ipairs(self._connections) do
+            pcall(conn.Disconnect, conn)
+        end
         table.clear(self._connections)
     end
+
     Volcano.SupportAvailable.replicate_signal = "rebuilt+"
     return wrapper
 end
-replicatesignal = Volcano.API.replicate_signal
 
 ------------------------------------------------------------
 -- 🧠 get_stack (rebuilds debug.getstack, supports foreign threads via RAPI.thread)
