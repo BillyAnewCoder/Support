@@ -21,9 +21,8 @@ function Volcano.API.replicate_signal(signal)
     local wrapper = { _connections = {} }
 
     function wrapper:Fire(...)
-        local fire = rawget(signal, "Fire")
-        if typeof(fire) == "function" then
-            fire(signal, ...)
+        if typeof(signal) == "Instance" and signal:IsA("BindableEvent") then
+            signal:Fire(...)
         elseif typeof(firesignal) == "function" then
             firesignal(signal, ...)
         else
