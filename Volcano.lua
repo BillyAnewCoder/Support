@@ -113,7 +113,7 @@ function Volcano.API.set_stack(thread, level, key, value)
     local func = info.func
     local success = false
 
-    for i = 1, math.huge do
+    for i = 1, debug.getinfo(func, "u").nups do
         local name = debug.getupvalue(func, i)
         if not name then break end
         if name == key then
