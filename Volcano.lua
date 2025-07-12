@@ -12,9 +12,7 @@ Volcano.SupportAvailable = {}
 -- 🔁 replicate_signal (alias for replicatesignal)
 ------------------------------------------------------------
 function Volcano.API.replicate_signal(signal)
-    local isBindable = typeof(signal) == "Instance" and signal:IsA("BindableEvent")
-    local event = isBindable and signal.Event or signal
-
+    local event = (typeof(signal) == "Instance" and signal:IsA("BindableEvent")) and signal.Event or signal
     if typeof(event) ~= "RBXScriptSignal" then
         warn("[Volcano:replicate_signal] Invalid signal passed")
         return nil
@@ -23,7 +21,7 @@ function Volcano.API.replicate_signal(signal)
     local wrapper = { _connections = {} }
 
     function wrapper:Fire(...)
-        if isBindable then
+        if typeof(signal) == "Instance" and signal:IsA("BindableEvent") then
             signal:Fire(...)
         elseif typeof(firesignal) == "function" then
             firesignal(event, ...)
@@ -113,18 +111,26 @@ function Volcano.API.set_stack(thread, level, key, value)
     end
 
     local func = info.func
+    local success = false
+
     for i = 1, math.huge do
         local name = debug.getupvalue(func, i)
         if not name then break end
         if name == key then
             debug.setupvalue(func, i, value)
-            Volcano.SupportAvailable.set_stack = "rebuilt-upvalue"
-            return true
+            success = true
+            break
         end
     end
 
-    warn("[Volcano:set_stack] Upvalue '" .. key .. "' not found.")
-    return false
+    if success then
+        Volcano.SupportAvailable.set_stack = "rebuilt-upvalue"
+    else
+        Volcano.SupportAvailable.set_stack = "unsupported-upvalue"
+        warn("[Volcano:set_stack] Upvalue '" .. key .. "' not found.")
+    end
+
+    return success
 end
 
 debug.setstack = Volcano.API.set_stack
