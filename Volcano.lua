@@ -100,7 +100,12 @@ debug.getstack = Volcano.API.get_stack
 function Volcano.API.set_stack(thread, level, key, value)
     local result = false
 
-    local function performSet(func)
+    local function attempt_set(func)
+        if not func or type(func) ~= "function" then
+            warn("[Volcano:set_stack] Provided func is invalid.")
+            return false
+        end
+
         if type(key) == "number" then
             local name = debug.getupvalue(func, key)
             if name then
@@ -110,7 +115,8 @@ function Volcano.API.set_stack(thread, level, key, value)
                 warn("[Volcano:set_stack] getupvalue failed on index", key)
             end
         elseif type(key) == "string" then
-            for i = 1, debug.getinfo(func, "u").nups do
+            local max = debug.getinfo(func, "u").nups
+            for i = 1, max do
                 local name = debug.getupvalue(func, i)
                 if name == key then
                     debug.setupvalue(func, i, value)
@@ -124,23 +130,22 @@ function Volcano.API.set_stack(thread, level, key, value)
     if thread and thread ~= coroutine.running() then
         local done = false
         RAPI.run_on_thread(function()
-            local info = debug.getinfo(level, "f")
-            if not info or type(info.func) ~= "function" then
-                warn("[Volcano:set_stack] Invalid stack level.")
-                done = true
-                return
+            local info = debug.getinfo(thread, level, "f")
+            if info and info.func then
+                result = attempt_set(info.func)
+            else
+                warn("[Volcano:set_stack] Failed to get stack info in foreign thread.")
             end
-            result = performSet(info.func)
             done = true
         end, thread)
         repeat task.wait() until done
     else
         local info = debug.getinfo(level, "f")
-        if not info or type(info.func) ~= "function" then
-            warn("[Volcano:set_stack] Invalid stack level.")
-            return false
+        if info and info.func then
+            result = attempt_set(info.func)
+        else
+            warn("[Volcano:set_stack] Failed to get stack info.")
         end
-        result = performSet(info.func)
     end
 
     if result then
