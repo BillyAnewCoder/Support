@@ -210,6 +210,21 @@ function Volcano.API.is_scriptable(property)
     return ok
 end
 
+function Volcano.support_report(printResults)
+    local report = {}
+    for key, val in pairs(Volcano.SupportAvailable) do
+        table.insert(report, {name = key, status = val})
+    end
+    table.sort(report, function(a, b) return a.name < b.name end)
+    if printResults then
+        for _, r in ipairs(report) do
+            print(string.format("[Volcano] %s → %s", r.name, r.status))
+        end
+    end
+    return report
+end
+
+
 isscriptable = Volcano.API.is_scriptable
 
 Volcano.replicatesignal = Volcano.API.replicate_signal
@@ -218,4 +233,5 @@ Volcano.setstack        = Volcano.API.set_stack
 Volcano.getscripts      = Volcano.API.get_scripts
 Volcano.isscriptable    = Volcano.API.is_scriptable
 
+_G.Volcano = Volcano
 return Volcano
