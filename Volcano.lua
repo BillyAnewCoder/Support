@@ -57,105 +57,101 @@ function Volcano.API.replicate_signal(signal)
     return wrapper
 end
 
-------------------------------------------------------------
+----------------------------------------------------------------
 -- 🧠 get_stack (thread-aware using RAPI)
-------------------------------------------------------------
+----------------------------------------------------------------
 function Volcano.API.get_stack(thread)
-    local stack = nil
-    if thread and thread ~= coroutine.running() then
-        local done = false
-        RAPI.run_on_thread(function()
-            stack = {}
-            local level = 1
-            while true do
-                local info = debug.getinfo(level, "nSluf")
-                if not info then break end
-                table.insert(stack, info)
-                level += 1
-            end
-            done = true
-        end, thread)
-        repeat task.wait() until done
-        Volcano.SupportAvailable.get_stack = "threaded"
-        return stack
-    else
-        stack = {}
-        local level = 1
-        while true do
-            local info = debug.getinfo(level, "nSluf")
-            if not info then break end
-            table.insert(stack, info)
-            level += 1
-        end
-        Volcano.SupportAvailable.get_stack = "local"
-        return stack
-    end
+	local out = {}
+	local function collect()
+		local level = 1
+		while true do
+			local info = debug.getinfo(level, "nSluf")
+			if not info then break end
+			table.insert(out, info)
+			level += 1
+		end
+	end
+
+	if thread and thread ~= coroutine.running() then
+		local done = false
+		RAPI.run_on_thread(function()
+			collect()
+			done = true
+		end, thread)
+		repeat task.wait() until done
+		Volcano.SupportAvailable.get_stack = "threaded"
+	else
+		collect()
+		Volcano.SupportAvailable.get_stack = "local"
+	end
+
+	return out
 end
 
 debug.getstack = Volcano.API.get_stack
 
-------------------------------------------------------------
+----------------------------------------------------------------
 -- 🧬 set_stack (thread-aware using RAPI)
-------------------------------------------------------------
+----------------------------------------------------------------
 function Volcano.API.set_stack(thread, level, key, value)
-    local result = false
+	local function set_upvalue(func)
+		if type(func) ~= "function" then
+			warn("[Volcano:set_stack] Invalid function.")
+			return false
+		end
 
-    local function attempt_set(func)
-        if not func or type(func) ~= "function" then
-            warn("[Volcano:set_stack] Provided func is invalid.")
-            return false
-        end
+		if type(key) == "number" then
+			local name = debug.getupvalue(func, key)
+			if name then
+				debug.setupvalue(func, key, value)
+				return true
+			else
+				warn(string.format("[Volcano:set_stack] No upvalue at index %d", key))
+			end
+		elseif type(key) == "string" then
+			local count = debug.getinfo(func, "u").nups
+			for i = 1, count do
+				local name = debug.getupvalue(func, i)
+				if name == key then
+					debug.setupvalue(func, i, value)
+					return true
+				end
+			end
+		end
+		return false
+	end
 
-        if type(key) == "number" then
-            local name = debug.getupvalue(func, key)
-            if name then
-                debug.setupvalue(func, key, value)
-                return true
-            else
-                warn("[Volcano:set_stack] getupvalue failed on index", key)
-            end
-        elseif type(key) == "string" then
-            local max = debug.getinfo(func, "u").nups
-            for i = 1, max do
-                local name = debug.getupvalue(func, i)
-                if name == key then
-                    debug.setupvalue(func, i, value)
-                    return true
-                end
-            end
-        end
-        return false
-    end
+	local success = false
 
-    if thread and thread ~= coroutine.running() then
-        local done = false
-        RAPI.run_on_thread(function()
-            local info = debug.getinfo(thread, level, "f")
-            if info and info.func then
-                result = attempt_set(info.func)
-            else
-                warn("[Volcano:set_stack] Failed to get stack info in foreign thread.")
-            end
-            done = true
-        end, thread)
-        repeat task.wait() until done
-    else
-        local info = debug.getinfo(level, "f")
-        if info and info.func then
-            result = attempt_set(info.func)
-        else
-            warn("[Volcano:set_stack] Failed to get stack info.")
-        end
-    end
+	if thread and thread ~= coroutine.running() then
+		local done = false
+		RAPI.run_on_thread(function()
+			local info = debug.getinfo(level, "f")
+			if info and info.func then
+				success = set_upvalue(info.func)
+			else
+				warn("[Volcano:set_stack] Could not access stack level in foreign thread.")
+			end
+			done = true
+		end, thread)
+		repeat task.wait() until done
+	else
+		local info = debug.getinfo(level, "f")
+		if info and info.func then
+			success = set_upvalue(info.func)
+		else
+			warn("[Volcano:set_stack] Could not access local stack level.")
+		end
+	end
 
-    if result then
-        Volcano.SupportAvailable.set_stack = "rebuilt-upvalue"
-    else
-        Volcano.SupportAvailable.set_stack = "unsupported-upvalue"
-        warn("[Volcano:set_stack] Upvalue '" .. tostring(key) .. "' not found or failed to set.")
-    end
+	if success then
+		Volcano.SupportAvailable.set_stack = "rebuilt-upvalue"
+	else
+		Volcano.SupportAvailable.set_stack = "unsupported-upvalue"
+		warn("[Volcano:set_stack] Upvalue '" .. tostring(key) .. "' not found or failed to set.")
+	end
 
-    return result
+	return success
 end
 
 debug.setstack = Volcano.API.set_stack
