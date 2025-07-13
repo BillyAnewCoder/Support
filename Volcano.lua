@@ -97,31 +97,15 @@ debug.getstack = Volcano.API.get_stack
 ------------------------------------------------------------
 -- 🧬 set_stack (thread-aware using RAPI)
 ------------------------------------------------------------
-function Volcano.API.set_stack(thread, level_or_func, key, value)
+function Volcano.API.set_stack(thread, level, key, value)
     local result = false
-    local func = nil
 
-    -- Determine if level_or_func is a number (stack level) or a direct function reference
-    if type(level_or_func) == "function" then
-        func = level_or_func
-    elseif type(level_or_func) == "number" then
-        local info = debug.getinfo(level_or_func + 1, "f")
-        if not info or type(info.func) ~= "function" then
-            warn("[Volcano:set_stack] Invalid stack level.")
-            return false
-        end
-        func = info.func
-    else
-        warn("[Volcano:set_stack] Invalid level_or_func type:", typeof(level_or_func))
-        return false
-    end
-
-    local runner = function()
+    local function performSet(func)
         if type(key) == "number" then
             local name = debug.getupvalue(func, key)
             if name then
                 debug.setupvalue(func, key, value)
-                result = true
+                return true
             else
                 warn("[Volcano:set_stack] getupvalue failed on index", key)
             end
@@ -130,22 +114,33 @@ function Volcano.API.set_stack(thread, level_or_func, key, value)
                 local name = debug.getupvalue(func, i)
                 if name == key then
                     debug.setupvalue(func, i, value)
-                    result = true
-                    break
+                    return true
                 end
             end
         end
+        return false
     end
 
     if thread and thread ~= coroutine.running() then
         local done = false
         RAPI.run_on_thread(function()
-            runner()
+            local info = debug.getinfo(level, "f")
+            if not info or type(info.func) ~= "function" then
+                warn("[Volcano:set_stack] Invalid stack level.")
+                done = true
+                return
+            end
+            result = performSet(info.func)
             done = true
         end, thread)
         repeat task.wait() until done
     else
-        runner()
+        local info = debug.getinfo(level, "f")
+        if not info or type(info.func) ~= "function" then
+            warn("[Volcano:set_stack] Invalid stack level.")
+            return false
+        end
+        result = performSet(info.func)
     end
 
     if result then
